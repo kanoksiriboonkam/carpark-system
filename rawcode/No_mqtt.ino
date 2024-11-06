@@ -2,12 +2,14 @@
 
 // กำหนดขา GPIO สำหรับเซ็นเซอร์ IR Line Tracking Module บนบอร์ด ESP32
 const int irSensor1 = 5;    // เซ็นเซอร์ IR ตัวที่ 1 ที่ขา GPIO 5
-const int irSensor2 = 0;    // เซ็นเซอร์ IR ตัวที่ 2 ที่ขา GPIO 18
+const int irSensor2 = 18;   // เซ็นเซอร์ IR ตัวที่ 2 ที่ขา GPIO 18
 const int irSensor3 = 22;   // เซ็นเซอร์ IR ตัวที่ 3 ที่ขา GPIO 22
 const int servoPin = 21;    // ขา PWM สำหรับควบคุมเซอร์โวมอเตอร์
 
 Servo myServo;  // สร้างอ็อบเจ็กต์ Servo
-int objectCount = 0;  // ตัวแปรนับจำนวนวัตถุที่เซ็นเซอร์ IR ที่ขา 5 ตรวจจับได้
+int objectCount = 0;        // ตัวแปรนับจำนวนวัตถุที่เซ็นเซอร์ IR ที่ขา 5 ตรวจจับได้
+unsigned long lastDetectionTime = 0;  // เก็บเวลาที่ตรวจจับได้ครั้งล่าสุด
+bool objectDetected = false;  // สถานะการตรวจจับวัตถุ
 
 void setup() {
   Serial.begin(115200);  // เริ่มต้นการสื่อสารแบบ Serial ที่ความเร็ว 115200
@@ -36,20 +38,23 @@ void loop() {
   Serial.print("\t IR Sensor 3 (GPIO 22): ");
   Serial.println(value3);
 
-  // เช็คเงื่อนไขการทำงานของเซอร์โวมอเตอร์
-  if (value1 == 0) {
-    // ถ้าเซ็นเซอร์ IR ที่ขา 5 ตรวจจับค่าเป็น 0
-    objectCount++;  // เพิ่มจำนวนครั้งที่ตรวจจับวัตถุ
-    Serial.print("Object Count: ");
-    Serial.println(objectCount);
+  // ตรวจสอบสถานะของเซ็นเซอร์ IR ที่ขา 5
+  if (value1 == 0) {  // ตรวจจับวัตถุได้
+    if (!objectDetected) {
+      objectCount++;  // เพิ่มจำนวนวัตถุที่ตรวจจับได้
+      Serial.print("Object Count: ");
+      Serial.println(objectCount);
+      objectDetected = true;  // เปลี่ยนสถานะเป็นตรวจจับวัตถุ
+    }
 
-    // หมุนเซอร์โวมอเตอร์ไปที่ 90 องศา ค้างไว้ 3 วินาที จากนั้นกลับมาที่ 0 องศา
+    // ตั้งเซอร์โวมอเตอร์ไปที่ 90 องศา
     myServo.write(90);
-    delay(3000);  // ค้างไว้ 3 วินาที
-    myServo.write(0);  // หมุนกลับไปที่ 0 องศา
-  } else {
-    // ถ้าเซ็นเซอร์ IR ที่ขา 5 ไม่ตรวจจับวัตถุ ให้เซอร์โวมอเตอร์อยู่ที่ตำแหน่ง 0 องศา
-    myServo.write(0);
+    lastDetectionTime = millis();  // บันทึกเวลาที่ตรวจจับล่าสุด
+  } else {  // ตรวจจับวัตถุไม่ได้
+    objectDetected = false;
+    if (millis() - lastDetectionTime >= 3000) {  // ตรวจสอบว่าไม่มีวัตถุเป็นเวลา 3 วินาที
+      myServo.write(0);  // หมุนกลับไปที่ 0 องศา
+    }
   }
 
   delay(500);  // หน่วงเวลา 500 มิลลิวินาทีระหว่างการอ่าน
